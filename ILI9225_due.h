@@ -536,7 +536,7 @@ public:
 	void drawFastHLine(int16_t x, int16_t y, uint16_t w, uint16_t color);
 	void drawRect(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t color);
 
-	void setRotation(iliRotation r, uint8_t i);
+	void setRotation(iliRotation r, uint8_t i=0);
 	void invertDisplay(boolean i);
 	void display(boolean d);
 	void sleep(boolean s);
@@ -1036,8 +1036,8 @@ protected:
 #endif
 	void setRowAddr(uint16_t y, uint16_t h)
 	{
-		writeRegister(endV,y+h-1);  //evtl. unnˆtig
-		writeRegister(startV,y);    //evtl. unnˆtig
+		writeRegister(endV,y+h-1);  //evtl. unn√∂tig
+		writeRegister(startV,y);    //evtl. unn√∂tig
 		writeRegister(this->ramAddrTwo,y);
 	}
 
@@ -1147,7 +1147,7 @@ protected:
 	void writeScanlineLooped(uint32_t n) 
 	{
 
-		if (n > SCANLINE_PIXEL_COUNT)   //wenn die Anzahl der zu schreibenden Pixel l‰nger als eine Zeile ist
+		if (n > SCANLINE_PIXEL_COUNT)   //wenn die Anzahl der zu schreibenden Pixel l√§nger als eine Zeile ist
 		{
 			const uint32_t numLoops = n / (uint32_t)SCANLINE_PIXEL_COUNT; //wird mehrmals eine (die selbe?) komplette Zeile ausgegeben
 			for (uint32_t l = 0; l < numLoops; l++)
@@ -1157,7 +1157,7 @@ protected:
 		}
 
 		uint16_t remainingPixels = n == SCANLINE_PIXEL_COUNT ? SCANLINE_PIXEL_COUNT : n % SCANLINE_PIXEL_COUNT; //Anzahl restliche Pixel ermitteln
-		//Falls es der Rest einer Zahl n > Zeilenl‰nge war, dann wiederholen sich die ersten Bits der Zeile.
+		//Falls es der Rest einer Zahl n > Zeilenl√§nge war, dann wiederholen sich die ersten Bits der Zeile.
 		if (remainingPixels > 0)  
 		{
 			writeScanline16(remainingPixels);
