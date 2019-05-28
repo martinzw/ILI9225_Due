@@ -56,7 +56,6 @@ along with ILI9225_due.  If not, see <http://www.gnu.org/licenses/>.
 	MIT license, all text above must be included in any redistribution
 	****************************************************/
 
-*/
 
 #ifndef _ILI9225_due_configH_
 #define _ILI9225_due_configH_
