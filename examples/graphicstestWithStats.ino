@@ -1,5 +1,5 @@
 /*
-Test_ILI9225_DMA.ino - Test program for Arduino Due library for interfacing with (write only) ILI9225-based TFTs
+graphicstestWithStats.ino - Test program for Arduino Due library for interfacing with (write only) ILI9225-based TFTs
 
 Taken from Arduino Due library for interfacing with ILI9341-based TFTs
 (https://github.com/marekburiak/ILI341_Due)
