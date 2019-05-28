@@ -20,3 +20,9 @@ But the benchmark and demo examples taken from Marek's Library have been tested 
 See this short video:
 
 https://www.youtube.com/embed/-lvQcEdbCPM
+
+SPI Transactions:
+If the controller has to communicate with more than one SPI device at a time, transfer settings can be different for the different devices. The Arduino libraries take care of that in newer library versions by holding a set of settings for each SPI device.
+Starting a transaction for a device resumes the correct settings for this device and blocks other SPI interrupts until the transaction is finished with the endTransision command.
+If you only use the ILI9225 Display as the single device on the SPI Bus, you do not need transactions.
+look at: https://www.arduino.cc/en/Tutorial/SPITransaction
