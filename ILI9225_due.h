@@ -519,7 +519,6 @@ protected:
 public:
 	ILI9225_due(uint8_t cs, uint8_t dc, uint8_t rst = 255);
 
-	void testZWE();
 	bool begin(void);
 	void getDisplayStatus();
 	void fillScreen(uint16_t color=COLOR_BLACK);
