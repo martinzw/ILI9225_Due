@@ -593,17 +593,18 @@ void ILI9225_due::setRotation(iliRotation r, uint8_t i)
 
 	_rotation = (iliRotation) (r % 4); // can't be higher than 3
 	i = i % 2; // can't be higher than 1
-	beginTransaction();
-	writecommand_cont(ILI9225_DRIVER_OUTPUT_CTRL);
+	
+	writecommand_cont(ILI9225_DRIVER_OUTPUT_CTRL);  //VSPL HSPL DPL EPL   0 SM   GS   SS    0 0 0 NL4 NL3 NL2 NL1 NL0
+													//  0   0    0   0    0  0   1/0  1/0   0 0 0  1   1   1  0    0
 
-	if(!_rotation)
-	{
+	if(!_rotation) //0°
+	{   //Command register ILI9225_DRIVER_OUTPUT_CTRL was selected before 
 		setDCForControlOrGRAM();
-		write16_cont(i ? 0x001C:0x011C);
+		write16_cont(i ? 0x001C:0x011C);   //normal:  GS=0   SS=1  ;  inverted: GS=0  SS=0  
 		setDCForIndexOrStatus();
-		writecommand_cont(ILI9225_ENTRY_MODE);
+		writecommand_cont(ILI9225_ENTRY_MODE);  // 0 0 0 BGR 0 0 MDT1 MDT0 0 0 I/D1 I/D0 AM 0 0 0
 		setDCForControlOrGRAM();
-		write16_last(0x1030);
+		write16_last(0x1030);					// 0 0 0  1  0 0  0    0   0 0  1     1   0 0 0 0  =>AM=0  
 		endTransaction();
 	 
 		startH = ILI9225_HORIZONTAL_WINDOW_ADDR2;
@@ -615,14 +616,14 @@ void ILI9225_due::setRotation(iliRotation r, uint8_t i)
 		_width = ILI9225_TFTWIDTH;
 		_height = ILI9225_TFTHEIGHT;
 	}
-	else if(_rotation == 1)
-	{
+	else if(_rotation == 1)  //90°
+	{   //Command register ILI9225_DRIVER_OUTPUT_CTRL was selected before
 		setDCForControlOrGRAM();
-		write16_cont(i ? 0x021C:0x001C);
+		write16_cont(i ? 0x021C:0x001C);   //normal: GS=0   SS=0  ;  inverted: GS=1  SS=0  
 		setDCForIndexOrStatus();
-		write16_cont(ILI9225_ENTRY_MODE);
-		setDCForControlOrGRAM();
-		write16_last(0x1038);
+		writecommand_cont(ILI9225_ENTRY_MODE);  // 0 0 0 BGR 0 0 MDT1 MDT0 0 0 I/D1 I/D0 AM 0 0 0
+		setDCForControlOrGRAM();		   
+		write16_last(0x1038);			   // 0 0 0  1  0 0  0    0   0 0  1     0   1 0 0 0  =>AM=1   I/D=10
 		endTransaction();
 	
 		startH = ILI9225_VERTICAL_WINDOW_ADDR2;
@@ -634,14 +635,14 @@ void ILI9225_due::setRotation(iliRotation r, uint8_t i)
 		_width = ILI9225_TFTHEIGHT;
 		_height = ILI9225_TFTWIDTH;
 	}
-	else if(_rotation == 2)
-	{
+	else if(_rotation == 2)  //180°
+	{   //Command register ILI9225_DRIVER_OUTPUT_CTRL was selected before
 		setDCForControlOrGRAM();
-		write16_cont(i ? 0x031C:0x021C);
+		write16_cont(i ? 0x031C:0x021C);  //normal: GS=1 SS=0   ;  inverted: GS=1   SS=1  
 		setDCForIndexOrStatus();
-		write16_cont(ILI9225_ENTRY_MODE);
+		writecommand_cont(ILI9225_ENTRY_MODE);  // 0 0 0 BGR 0 0 MDT1 MDT0 0 0 I/D1 I/D0 AM 0 0 0
 		setDCForControlOrGRAM();
-		write16_last(0x1030);
+		write16_last(0x1030);			   // 0 0 0  1  0 0  0    0   0 0  0     0   0 0 0 0  =>AM=0  I/D =00
 		endTransaction();
 		startH = ILI9225_HORIZONTAL_WINDOW_ADDR2;
 		endH = ILI9225_HORIZONTAL_WINDOW_ADDR1;
@@ -652,14 +653,14 @@ void ILI9225_due::setRotation(iliRotation r, uint8_t i)
 		_width = ILI9225_TFTWIDTH;
 		_height = ILI9225_TFTHEIGHT;
 	}
-	else if(_rotation == 3)
-	{
+	else if(_rotation == 3)  //270°
+	{   //Command register ILI9225_DRIVER_OUTPUT_CTRL was selected before
 		setDCForControlOrGRAM();
-		write16_cont(i ? 0x011C:0x031C);
+		write16_cont(i ? 0x011C:0x031C);  //normal: GS=1 SS=1  ;  inverted: GS=0 SS=1 
 		setDCForIndexOrStatus();
-		write16_cont(ILI9225_ENTRY_MODE);
+		writecommand_cont(ILI9225_ENTRY_MODE); // 0 0 0 BGR 0 0 MDT1 MDT0 0 0 I/D1 I/D0 AM 0 0 0
 		setDCForControlOrGRAM();
-		write16_last(0x1038);
+		write16_last(0x1038);             // 0 0 0  1  0 0  0    0   0 0  1     1   1 0 0 0  =>AM=1   I/D=01
 		endTransaction();
 
 		startH = ILI9225_VERTICAL_WINDOW_ADDR2;
@@ -671,15 +672,157 @@ void ILI9225_due::setRotation(iliRotation r, uint8_t i)
 		_width = ILI9225_TFTHEIGHT;
 		_height = ILI9225_TFTWIDTH;
 	}
+	else  //should not happen... handle like 0°
+	{  //Command register ILI9225_DRIVER_OUTPUT_CTRL was selected before
+	 	setDCForControlOrGRAM();
+	    write16_cont(i ? 0x001C:0x011C);   //normal:  GS=0   SS=1  ;  inverted: GS=0  SS=0
+	    setDCForIndexOrStatus();
+	    writecommand_cont(ILI9225_ENTRY_MODE);  // 0 0 0 BGR 0 0 MDT1 MDT0 0 0 I/D1 I/D0 AM 0 0 0
+	    setDCForControlOrGRAM();
+	    write16_last(0x1030);					// 0 0 0  1  0 0  0    0   0 0  1     1   0 0 0 0  =>AM=0
+	    endTransaction();
+	}
 
-	endTransaction();
+		
+//	_area.x = 0;
+//	_area.y = 0;
+	_area.w = _width;
+	_area.h = _height;
+
+}
+
+void ILI9225_due::testZWE()
+{
+		setAddrWindow(0,0,width()-1,height()-1);
+
+ 	 	for(int i=0;i<110; i++)
+ 	 	{
+			pushColor(COLOR_YELLOW);
+	 	}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_RED);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_YELLOW);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_RED);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_YELLOW);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_RED);
+		}
+
+			 	for(int i=0;i<110; i++)
+			 	{
+				 	pushColor(COLOR_YELLOW);
+			 	}
+
+			 	for(int i=0;i<110; i++)
+			 	{
+				 	pushColor(COLOR_RED);
+			 	}
+
+			 	for(int i=0;i<110; i++)
+			 	{
+				 	pushColor(COLOR_YELLOW);
+			 	}
+
+			 	for(int i=0;i<110; i++)
+			 	{
+				 	pushColor(COLOR_RED);
+			 	}
+
+			 	for(int i=0;i<110; i++)
+			 	{
+				 	pushColor(COLOR_YELLOW);
+			 	}
+
+			 	for(int i=0;i<110; i++)
+			 	{
+				 	pushColor(COLOR_RED);
+			 	}
+
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_WHITE);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_BLUE);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_WHITE);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_BLUE);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_WHITE);
+		}
+
+		for(int i=0;i<110; i++)
+		{
+			pushColor(COLOR_BLUE);
+		}
+
+			for(int i=0;i<110; i++)
+			{
+				pushColor(COLOR_WHITE);
+			}
+
+			for(int i=0;i<110; i++)
+			{
+				pushColor(COLOR_BLUE);
+			}
+
+			for(int i=0;i<110; i++)
+			{
+				pushColor(COLOR_WHITE);
+			}
+
+			for(int i=0;i<110; i++)
+			{
+				pushColor(COLOR_BLUE);
+			}
+
+			for(int i=0;i<110; i++)
+			{
+				pushColor(COLOR_WHITE);
+			}
+
+			for(int i=0;i<110; i++)
+			{
+				pushColor(COLOR_BLUE);
+			}
+
+
+ 
 }
 
 void ILI9225_due::invertDisplay(boolean i)
 {
-
-setRotation(_rotation, i ? 1:0);
-
+  setRotation(_rotation, i ? 1:0);
 }
 
 /*
@@ -1227,13 +1370,13 @@ void ILI9225_due::drawLine_noTrans(int16_t x0, int16_t y0, int16_t x1, int16_t y
 	bool steep = abs(y1 - y0) > abs(x1 - x0);
 	if (steep) 
 	{
-		swap(x0, y0);
-		swap(x1, y1);
+		swap2(x0, y0);
+		swap2(x1, y1);
 	}
 	if (x0 > x1) 
 	{
-		swap(x0, x1);
-		swap(y0, y1);
+		swap2(x0, x1);
+		swap2(y0, y1);
 	}
 
 	int16_t dx, dy;
@@ -1402,15 +1545,15 @@ void ILI9225_due::fillTriangle(int16_t x0, int16_t y0,
 	// Sort coordinates by Y order (y2 >= y1 >= y0)
 	if (y0 > y1) 
 	{
-		swap(y0, y1); swap(x0, x1);
+		swap2(y0, y1); swap2(x0, x1);
 	}
 	if (y1 > y2) 
 	{
-		swap(y2, y1); swap(x2, x1);
+		swap2(y2, y1); swap2(x2, x1);
 	}
 	if (y0 > y1) 
 	{
-		swap(y0, y1); swap(x0, x1);
+		swap2(y0, y1); swap2(x0, x1);
 	}
 
 	if (y0 == y2) 
@@ -1457,7 +1600,7 @@ void ILI9225_due::fillTriangle(int16_t x0, int16_t y0,
 		a = x0 + (x1 - x0) * (y - y0) / (y1 - y0);
 		b = x0 + (x2 - x0) * (y - y0) / (y2 - y0);
 		*/
-		if (a > b) swap(a, b);
+		if (a > b) swap2(a, b);
 		writeHLine_cont_noCS_noFill(a, y, b - a + 1);
 	}
 
@@ -1475,7 +1618,7 @@ void ILI9225_due::fillTriangle(int16_t x0, int16_t y0,
 		a = x1 + (x2 - x1) * (y - y1) / (y2 - y1);
 		b = x0 + (x2 - x0) * (y - y0) / (y2 - y0);
 		*/
-		if (a > b) swap(a, b);
+		if (a > b) swap2(a, b);
 		writeHLine_cont_noCS_noFill(a, y, b - a + 1);
 	}
 	disableCS();
@@ -1868,12 +2011,12 @@ void ILI9225_due::specialChar(uint8_t c)
 			//#endif
 			//
 			//				/*
-			//				* forumula for pixels to scroll is:
+			//				* formula for pixels to scroll is:
 			//				*	(assumes "height" is one less than rendered height)
 			//				*
 			//				*		pixels = height - ((_area.y1 - _y)  - height) +1;
 			//				*
-			//				*		The forumala below is unchanged
+			//				*		The formula below is unchanged
 			//				*		But has been re-written/simplified in hopes of better code
 			//				*
 			//				*/
@@ -2061,6 +2204,7 @@ size_t ILI9225_due::write(uint8_t c)
 	return 1; // valid char
 }
 
+
 void ILI9225_due::drawSolidChar(char c, uint16_t index, uint16_t charWidth, uint16_t charHeight)
 {
 	uint8_t bitId = 0;
@@ -2104,7 +2248,7 @@ void ILI9225_due::drawSolidChar(char c, uint16_t index, uint16_t charWidth, uint
 
 	enableCS();
 	if (_textScale == 1)
-		setRowAddr(_y, charHeight);
+		setRowAddr(_y, charHeight);  
 
 	for (uint16_t j = 0; j < charWidth; j++) /* each column */
 	{
@@ -2561,6 +2705,7 @@ size_t ILI9225_due::print(const __FlashStringHelper *str)
 	endTransaction();
 	return 0;
 }
+
 void ILI9225_due::printAt(const char *str, int16_t x, int16_t y)
 {
 	cursorToXY(x, y);
