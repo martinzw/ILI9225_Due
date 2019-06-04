@@ -404,7 +404,7 @@ typedef enum
 } pwrLevel;
 
 #ifndef swap
-#define swap(a, b) { typeof(a) t = a; a = b; b = t; }
+#define swap2(a, b) { typeof(a) t = a; a = b; b = t; }
 #endif
 
 #ifdef ARDUINO_SAM_DUE
@@ -502,7 +502,7 @@ protected:
 	void pushColors_noTrans_noCS(const uint16_t *colors, uint16_t offset, uint32_t len);
 
 	void specialChar(uint8_t c);
-	void drawSolidChar(char c, uint16_t index, uint16_t charWidth, uint16_t charHeight);
+	void drawSolidChar(char c, uint16_t index, uint16_t charWidth, uint16_t charHeight);	
 	void drawTransparentChar(char c, uint16_t index, uint16_t charWidth, uint16_t charHeight);
 	void applyPivot(const char *str, gTextPivot pivot, gTextAlign align);
 	void applyPivot(const String &str, gTextPivot pivot, gTextAlign align);
@@ -519,6 +519,7 @@ protected:
 public:
 	ILI9225_due(uint8_t cs, uint8_t dc, uint8_t rst = 255);
 
+	void testZWE();
 	bool begin(void);
 	void getDisplayStatus();
 	void fillScreen(uint16_t color=COLOR_BLACK);
@@ -1028,7 +1029,7 @@ protected:
 	{
 		writeRegister(endH,x+w-1);
 		writeRegister(startH,x);
-		writeRegister(this->ramAddrOne,x);
+		writeRegister(ramAddrOne,x);
 	}
 
 #ifdef ARDUINO_SAM_DUE
@@ -1036,9 +1037,9 @@ protected:
 #endif
 	void setRowAddr(uint16_t y, uint16_t h)
 	{
-		writeRegister(endV,y+h-1);  //evtl. unnötig
-		writeRegister(startV,y);    //evtl. unnötig
-		writeRegister(this->ramAddrTwo,y);
+		 writeRegister(endV,y+h-1);
+		 writeRegister(startV,y);
+		 writeRegister(ramAddrTwo, y);
 	}
 
 	inline __attribute__((always_inline))
@@ -1060,7 +1061,7 @@ protected:
 		write8_cont(c);
 	}
 
-	// Enables CS, sets DC for Command, writes 1 byte, disables CS
+	// Enables CS, sets DC for Index or Status, writes 1 byte, disables CS
 	inline __attribute__((always_inline))
 	void writecommand_last(uint8_t c) 
 	{
@@ -1429,7 +1430,7 @@ void fillScanline16(uint16_t color, uint16_t len)
 		*_csport |= _cspinmask;
 		//csport->PIO_SODR  |=  cspinmask;
 #elif SPI_MODE_EXTENDED
-		writecommand_last(ILI9225_NOP);	// have to send a byte to disable CS
+		writecommand_last(ILI9225_GRAM_DATA_REG);	// have to send a byte to disable CS (Selecting this Register should not do any harm...)
 #endif
 	}
 
@@ -1779,16 +1780,16 @@ void fillScanline16(uint16_t color, uint16_t len)
 	}
 #elif SPI_MODE_DMA
 	/** Use SAM3X DMAC if nonzero */
-#define ILI_USE_SAM3X_DMAC 1
+#define ILI_USE_SAM3X_DMAC 1   //DMAC=Direct Memory Access Controller
 	/** Use extra Bus Matrix arbitration fix if nonzero */
 #define ILI_USE_SAM3X_BUS_MATRIX_FIX 0
 	/** Time in ms for DMA receive timeout */
 #define ILI_SAM3X_DMA_TIMEOUT 100
 	/** chip select register number */
 #define ILI_SPI_CHIP_SEL 3
-	/** DMAC receive channel */
+	/** DMAC receive channel (from LCD module to memory buffer)*/
 #define ILI_SPI_DMAC_RX_CH  1
-	/** DMAC transmit channel */
+	/** DMAC transmit channel (from memory buffer to LCD module)*/
 #define ILI_SPI_DMAC_TX_CH  0
 	/** DMAC Channel HW Interface Number for SPI TX. */
 #define ILI_SPI_TX_IDX  1
@@ -1798,7 +1799,7 @@ void fillScanline16(uint16_t color, uint16_t len)
 	/** Disable DMA Controller. */
 	static void dmac_disable() 
 	{
-		DMAC->DMAC_EN &= (~DMAC_EN_ENABLE);
+		DMAC->DMAC_EN &= (~DMAC_EN_ENABLE);  
 	}
 	/** Enable DMA Controller. */
 	static void dmac_enable() 
@@ -1808,27 +1809,27 @@ void fillScanline16(uint16_t color, uint16_t len)
 	/** Disable DMA Channel. */
 	static void dmac_channel_disable(uint32_t ul_num) 
 	{
-		DMAC->DMAC_CHDR = DMAC_CHDR_DIS0 << ul_num;
+		DMAC->DMAC_CHDR = DMAC_CHDR_DIS0 << ul_num;  //DMAC_CHDR=DMAC Channel Handler Disable Register
 	}
 	/** Enable DMA Channel. */
 	static void dmac_channel_enable(uint32_t ul_num) 
 	{
-		DMAC->DMAC_CHER = DMAC_CHER_ENA0 << ul_num;
+		DMAC->DMAC_CHER = DMAC_CHER_ENA0 << ul_num;  //DMAC_CHER= DMAC Channel Handler Enable Register
 	}
 	/** Poll for transfer complete. */
 	static bool dmac_channel_transfer_done(uint32_t ul_num) 
-	{
-		return (DMAC->DMAC_CHSR & (DMAC_CHSR_ENA0 << ul_num)) ? false : true;
+	{													//Complete, if channel is not enabled (any more)
+		return (DMAC->DMAC_CHSR & (DMAC_CHSR_ENA0 << ul_num)) ? false : true;  //DMAC_CHSR=DMAC Channel Handler Status Register
 	}
 
 	static void spi_set_16bit_transfer() 
-	{
-		SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] = (SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] &= 0xFFFFFF0F) | 0x00000080;
+	{																				//Value 8 = 16bits/transfer
+		SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] = (SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] &= 0xFFFFFF0F) | 0x00000080;  //SPI_CSRn = SPI Chip Select Register n
 	}
 
 	static void spi_set_8bit_transfer() 
-	{
-		SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] &= 0xFFFFFF0F;
+	{                                                                //Value 0 = 8bits/transfer
+		SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI0->SPI_CSR[ILI_SPI_CHIP_SEL] &= 0xFFFFFF0F;  //SPI_CSRn = SPI Chip Select Register n
 	}
 	//------------------------------------------------------------------------------
 	void dmaBegin() 
@@ -1848,17 +1849,23 @@ void fillScanline16(uint16_t color, uint16_t len)
 			g_APinDescription[PIN_SPI_SCK].ulPinType,
 			g_APinDescription[PIN_SPI_SCK].ulPin,
 			g_APinDescription[PIN_SPI_SCK].ulPinConfiguration);
-		pmc_enable_periph_clk(ID_SPI0);
+		pmc_enable_periph_clk(ID_SPI0);  //#define ID_SPI0   (24)  (sam3x8e.h) => Power Management Controller creates clock for SPI0
 #if ILI_USE_SAM3X_DMAC
-		pmc_enable_periph_clk(ID_DMAC);
-		dmac_disable();
-		DMAC->DMAC_GCFG = DMAC_GCFG_ARB_CFG_FIXED;
-		dmac_enable();
+		pmc_enable_periph_clk(ID_DMAC);  //#define ID_DMAC   (39)  (sam3x8e.h) => Power Management Controller creates clock for DMAC
+		dmac_disable();					 //disable to make settings
+		DMAC->DMAC_GCFG = DMAC_GCFG_ARB_CFG_FIXED;    //Choose Fixed priority arbiter (instead of modified Round Robin) 
+													  //so: highest DMAC channel number = highest priority
+		dmac_enable();  // enable with new settings
 #if ILI_USE_SAM3X_BUS_MATRIX_FIX
-		MATRIX->MATRIX_WPMR = 0x4d415400;
-		MATRIX->MATRIX_MCFG[1] = 1;
-		MATRIX->MATRIX_MCFG[2] = 1;
-		MATRIX->MATRIX_SCFG[0] = 0x01000010;
+//What this does is to stop masters from hogging (reserving for themselves) the buses too much and keeps the bus slaves connected to their last master.
+//There are even stronger options if this is not enough (https://forum.arduino.cc/index.php?topic=134512.0)
+		MATRIX->MATRIX_WPMR = 0x4d415400; //MATRIX Write Protect Mode Register: disable Write protection (WPEN (bit 0->0)) with Key="MAT"
+		MATRIX->MATRIX_MCFG[1] = 1;	//Matrix-Master Configuration Register for DMA-Channel 1: ULBT: Undefined Length Burst Type -> 001 = 
+				//Single Access=>Undefined length burst is treated as a succession of single access allowing rearbitration at each beat of the INCR burst.
+		MATRIX->MATRIX_MCFG[2] = 1; //Matrix-Master Configuration Register for DMA-Channel 2: ULBT: Undefined Length Burst Type -> 001 =
+				//Single Access=>Undefined length burst is treated as a succession of single access allowing rearbitration at each beat of the INCR burst.
+		MATRIX->MATRIX_SCFG[0] = 0x01000010; //Bus Matrix Slave Configuration Register for Slave 0:
+				//SLOT_CYCLE: Maximum Number of Allowed Cycles for a Burst -> 16 (recommended Value); ARBT: Arbitration Type ->1: Fixed Priority Arbitration
 		MATRIX->MATRIX_SCFG[1] = 0x01000010;
 		MATRIX->MATRIX_SCFG[7] = 0x01000010;
 #endif  // ILI_USE_SAM3X_BUS_MATRIX_FIX
@@ -1869,15 +1876,15 @@ void fillScanline16(uint16_t color, uint16_t len)
 	void dmaInit(uint8_t sckDivisor) 
 	{
 		uint8_t scbr = sckDivisor;
-		Spi* pSpi = SPI0;
+		Spi* pSpi = SPI0; //DMA is DUE only and there we have to use SPI0
 		//  disable SPI
-		pSpi->SPI_CR = SPI_CR_SPIDIS;
+		pSpi->SPI_CR = SPI_CR_SPIDIS;   //SPI_CR= (write-only) Control Register for SPI (SPDIS=1 disables SPI)
 		// reset SPI
-		pSpi->SPI_CR = SPI_CR_SWRST;
+		pSpi->SPI_CR = SPI_CR_SWRST;    //SPI_CR= (write-only) Control Register for SPI  (SWRST= 1 => software triggered HW-Reset of SPI)
 		// no mode fault detection, set master mode
-		pSpi->SPI_MR = SPI_PCS(ILI_SPI_CHIP_SEL) | SPI_MR_MODFDIS | SPI_MR_MSTR;
-		// mode 0, 8-bit,
-		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(scbr) | SPI_CSR_NCPHA | SPI_CSR_BITS_8_BIT;
+		pSpi->SPI_MR = SPI_PCS(ILI_SPI_CHIP_SEL) | SPI_MR_MODFDIS | SPI_MR_MSTR;  //SPI_MR = SPI Mode Register
+		// mode 0, 8-bit,            SCBR=Serial Clock Baud Rate (scbr=divisor for MasterClock 1..255 allowed)
+		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(scbr) | SPI_CSR_NCPHA | SPI_CSR_BITS_8_BIT;  //NCPHA(ClockPhase)->1 = Data is captured on the leading edge of SPCK and changed on the following edge of SPCK
 		// enable SPI
 		pSpi->SPI_CR |= SPI_CR_SPIEN;
 	}
@@ -1885,15 +1892,15 @@ void fillScanline16(uint16_t color, uint16_t len)
 	void dmaInit16(uint8_t sckDivisor) 
 	{
 		uint8_t scbr = sckDivisor;
-		Spi* pSpi = SPI0;
+		Spi* pSpi = SPI0;  //DMA is DUE only and there we have to use SPI0
 		//  disable SPI
-		pSpi->SPI_CR = SPI_CR_SPIDIS;
+		pSpi->SPI_CR = SPI_CR_SPIDIS;  //SPI_CR= (write-only) Control Register for SPI (SPDIS=1 disables SPI)
 		// reset SPI
-		pSpi->SPI_CR = SPI_CR_SWRST;
+		pSpi->SPI_CR = SPI_CR_SWRST;  //SPI_CR= (write-only) Control Register for SPI  (SWRST= 1 => software triggered HW-Reset of SPI)
 		// no mode fault detection, set master mode
-		pSpi->SPI_MR = SPI_PCS(ILI_SPI_CHIP_SEL) | SPI_MR_MODFDIS | SPI_MR_MSTR;
-		// mode 0, 16-bit,
-		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(scbr) | SPI_CSR_NCPHA | SPI_CSR_BITS_16_BIT;
+		pSpi->SPI_MR = SPI_PCS(ILI_SPI_CHIP_SEL) | SPI_MR_MODFDIS | SPI_MR_MSTR; //SPI_MR = SPI Mode Register
+		// mode 0, 16-bit,              SCBR=Serial Clock Baud Rate (scbr=divisor for MasterClock 1..255 allowed)
+		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(scbr) | SPI_CSR_NCPHA | SPI_CSR_BITS_16_BIT; //NCPHA(ClockPhase)->1 = Data is captured on the leading edge of SPCK and changed on the following edge of SPCK
 		// enable SPI
 		pSpi->SPI_CR |= SPI_CR_SPIEN;
 	}
@@ -1902,9 +1909,9 @@ void fillScanline16(uint16_t color, uint16_t len)
 	void spiDmaRX(uint8_t* dst, uint16_t count) 
 	{
 		dmac_channel_disable(ILI_SPI_DMAC_RX_CH);
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_SADDR = (uint32_t)&SPI0->SPI_RDR;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_DADDR = (uint32_t)dst;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_DSCR = 0;
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_SADDR = (uint32_t)&SPI0->SPI_RDR;  //SPI0's ReceiveDataRegister as Source for the DMA-Transfer
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_DADDR = (uint32_t)dst;			  //Buffer as the Destination for the DMA-Transfer
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_DSCR = 0;  //DSCR=DMAC Channel Descriptor Address Register
 		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_CTRLA = count |
 			DMAC_CTRLA_SRC_WIDTH_BYTE | DMAC_CTRLA_DST_WIDTH_BYTE;
 		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_CTRLB = DMAC_CTRLB_SRC_DSCR |
@@ -1912,159 +1919,184 @@ void fillScanline16(uint16_t color, uint16_t len)
 			DMAC_CTRLB_SRC_INCR_FIXED | DMAC_CTRLB_DST_INCR_INCREMENTING;
 		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_RX_CH].DMAC_CFG = DMAC_CFG_SRC_PER(ILI_SPI_RX_IDX) |
 			DMAC_CFG_SRC_H2SEL | DMAC_CFG_SOD | DMAC_CFG_FIFOCFG_ASAP_CFG;
+			//FIFO_CFG=ASAP_CFG(10) When there is enough space/data available to perform a single AHB access, then the request is serviced.
+			//It seems, that only DMAC->DMAC_GCFG = DMAC_GCFG_ARB_CFG_FIXED; in "spiBegin" combined with FIFO_CFG=ASAP_CFG in "spiDmaRX"
+			//avoids errors in reads at 42 MHz if the data buffer for the read is in the top 32 KB of memory
+			//https://forum.arduino.cc/index.php?topic=134512.0
 		dmac_channel_enable(ILI_SPI_DMAC_RX_CH);
 	}
 	//------------------------------------------------------------------------------
 	// start TX DMA
-	void spiDmaTX(const uint8_t* src, uint16_t count) 
+	void spiDmaTX(const uint8_t* src, uint16_t count)  //count is in bytes
 	{
 		static uint8_t ff = 0XFF;
 		uint32_t src_incr = DMAC_CTRLB_SRC_INCR_INCREMENTING;
-		if (!src) 
+		if (!src)   //handle null-pointer for source buffer (for receive)
 		{
-			src = &ff;
-			src_incr = DMAC_CTRLB_SRC_INCR_FIXED;
+			src = &ff; //Dummy send data
+			src_incr = DMAC_CTRLB_SRC_INCR_FIXED;    //in this case source address is set to fixed (stays pointed to 0xff value)
 		}
-		dmac_channel_disable(ILI_SPI_DMAC_TX_CH);
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_SADDR = (uint32_t)src;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DADDR = (uint32_t)&SPI0->SPI_TDR;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DSCR = 0;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLA = count |
-			DMAC_CTRLA_SRC_WIDTH_BYTE | DMAC_CTRLA_DST_WIDTH_BYTE;
+		dmac_channel_disable(ILI_SPI_DMAC_TX_CH); //channel registers can only be set, if channel is disabled
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_SADDR = (uint32_t)src;  //Buffer as the Source for the DMA-Transfer
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DADDR = (uint32_t)&SPI0->SPI_TDR;  //SPI0's TransferDataRegister as the Destination of the DMA transfer
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DSCR = 0;  //DSCR=DMAC Channel Descriptor Address Register
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLA = count |  //set transfer size
+			DMAC_CTRLA_SRC_WIDTH_BYTE | DMAC_CTRLA_DST_WIDTH_BYTE;  //Source and Destination transfer size is set to 8-bit width
 
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLB = DMAC_CTRLB_SRC_DSCR |
-			DMAC_CTRLB_DST_DSCR | DMAC_CTRLB_FC_MEM2PER_DMA_FC |
-			src_incr | DMAC_CTRLB_DST_INCR_FIXED;
-
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CFG = DMAC_CFG_DST_PER(ILI_SPI_TX_IDX) |
-			DMAC_CFG_DST_H2SEL | DMAC_CFG_SOD | DMAC_CFG_FIFOCFG_ALAP_CFG;
-
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLB =
+			DMAC_CTRLB_SRC_DSCR |  //SRC_DSCR=1 (FETCH_DISABLE): Buffer Descriptor Fetch operation is disabled for the source
+			DMAC_CTRLB_DST_DSCR |  //DST_DSCR=1 (FETCH_DISABLE): Buffer Descriptor Fetch operation is disabled for the destination.
+			DMAC_CTRLB_FC_MEM2PER_DMA_FC |  //FC_MEM2PER_DMA_FC = Memory-to-Peripheral Transfer, DMAC is flow controller
+			src_incr | //Source address is incremented
+			DMAC_CTRLB_DST_INCR_FIXED;  //CTRLB.DST_INCR=FIXED(value 10) The destination address remains unchanged   
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CFG =
+			DMAC_CFG_DST_PER(ILI_SPI_TX_IDX) |  //DST_PER=Destination with Peripheral identifier
+			DMAC_CFG_DST_H2SEL | //DST_H2SEL=1=>Hardware Handshake for Destination
+			DMAC_CFG_SOD |//SOD=Stop On Done;
+			DMAC_CFG_FIFOCFG_ALAP_CFG;  //FIFOCFG=ALAP_CFG(Value=00) The largest defined length AHB burst
+										 //is performed on the destination AHB interface.
 		dmac_channel_enable(ILI_SPI_DMAC_TX_CH);
+		//What about this???=>
+		//After the software disables a channel by writing into the channel disable register, it must re-enable the
+		//channel only after it has polled a 0 in the corresponding channel enable status register. This is because the
+		//current AHB Burst must terminate properly.
+
 	}
 
-	void spiDmaTX16(const uint16_t* src, uint16_t count) 
+	void spiDmaTX16(const uint16_t* src, uint16_t count)  //count is not in bytes but in half-words (16Bit units)
 	{
 		static uint16_t ff = 0XFFFF;
 		uint32_t src_incr = DMAC_CTRLB_SRC_INCR_INCREMENTING;
-		if (!src) 
+		if (!src)  //handle null-pointer for source buffer (for receive)
 		{
-			src = &ff;
-			src_incr = DMAC_CTRLB_SRC_INCR_FIXED;
+			src = &ff; //dummy send data
+			src_incr = DMAC_CTRLB_SRC_INCR_FIXED; //in this case source address is set to fixed (stays pointed to 0xffff value)
 		}
-		dmac_channel_disable(ILI_SPI_DMAC_TX_CH);
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_SADDR = (uint32_t)src;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DADDR = (uint32_t)&SPI0->SPI_TDR;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DSCR = 0;
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLA = count |
-			DMAC_CTRLA_SRC_WIDTH_HALF_WORD | DMAC_CTRLA_DST_WIDTH_HALF_WORD;
+		dmac_channel_disable(ILI_SPI_DMAC_TX_CH);  //channel registers can only be set, if channel is disabled
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_SADDR = (uint32_t)src; //Set Buffer as the Source for the DMA-Transfer
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DADDR = (uint32_t)&SPI0->SPI_TDR; //SPI0's TransferDataRegister as the Destination of the DMA transfer
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_DSCR = 0;   //DSCR=DMAC Channel Descriptor Address Register
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLA = count | //set transfer size
+			DMAC_CTRLA_SRC_WIDTH_HALF_WORD | DMAC_CTRLA_DST_WIDTH_HALF_WORD; //Source and Destination transfer size is set to 16-bit width
 
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLB = DMAC_CTRLB_SRC_DSCR |
-			DMAC_CTRLB_DST_DSCR | DMAC_CTRLB_FC_MEM2PER_DMA_FC |
-			src_incr | DMAC_CTRLB_DST_INCR_FIXED;
-
-		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CFG = DMAC_CFG_DST_PER(ILI_SPI_TX_IDX) |
-			DMAC_CFG_DST_H2SEL | DMAC_CFG_SOD | DMAC_CFG_FIFOCFG_ALAP_CFG;
-
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CTRLB =
+			DMAC_CTRLB_SRC_DSCR | //SRC_DSCR=1 (FETCH_DISABLE): Buffer Descriptor Fetch operation is disabled for the source
+			DMAC_CTRLB_DST_DSCR | //DST_DSCR=1 (FETCH_DISABLE): Buffer Descriptor Fetch operation is disabled for the destination.
+			DMAC_CTRLB_FC_MEM2PER_DMA_FC |  //Memory-to-Peripheral-Transfer, DMAC is flow controller
+			src_incr |  //source address is incremented
+			DMAC_CTRLB_DST_INCR_FIXED; //CTRLB.DST_INCR=FIXED(value 10) The destination address remains unchanged
+            
+		DMAC->DMAC_CH_NUM[ILI_SPI_DMAC_TX_CH].DMAC_CFG = 
+								DMAC_CFG_DST_PER(ILI_SPI_TX_IDX) | //DST_PER=Destination with Peripheral identifier
+								DMAC_CFG_DST_H2SEL | //DST_H2SEL=1=>Hardware Handshake for Destination
+								DMAC_CFG_SOD | //SOD=Stop On Done
+								DMAC_CFG_FIFOCFG_ALAP_CFG; //FIFOCFG=ALAP_CFG(Value=00) The largest defined length AHB burst 
+														   //is performed on the destination AHB interface.
 		dmac_channel_enable(ILI_SPI_DMAC_TX_CH);
+		//What about this???=>
+		//After the software disables a channel by writing into the channel disable register, it must re-enable the
+		//channel only after it has polled a 0 in the corresponding channel enable status register. This is because the
+		//current AHB Burst must terminate properly.
 	}
 	//------------------------------------------------------------------------------
 	__attribute__((always_inline))
-	uint8_t dmaSpiTransfer(uint8_t b) 
+	uint8_t dmaSpiTransfer(uint8_t b)   //8 Bit version  (used for "transfer single byte" and for "receive single byte" )
 	{
-		Spi* pSpi = SPI0;
+		Spi* pSpi = SPI0; //DMA is DUE only and there we have to use SPI0
 
-		pSpi->SPI_TDR = b;
-		while ((pSpi->SPI_SR & SPI_SR_RDRF) == 0) {}
-		b = pSpi->SPI_RDR;
-		return b;
+		pSpi->SPI_TDR = b;  //Put Byte into Transmit Data Register
+		while ((pSpi->SPI_SR & SPI_SR_RDRF) == 0) {}  //poll RDRF bit in SPI Status Register (When the received data is read, the RDRF bit is cleared )
+		b = pSpi->SPI_RDR; //get received data from Receive Data Register
+		return b;  //and return it to caller
 	}
 
-	__attribute__((always_inline))
-	uint16_t dmaSpiTransfer(uint16_t w) 
+	__attribute__((always_inline)) 
+	uint16_t dmaSpiTransfer(uint16_t w)   //16 Bit version  (used for "transfer 16Bit half-word" )
 	{
-		spi_set_16bit_transfer();
-		SPI0->SPI_TDR = w;
-		while ((SPI0->SPI_SR & SPI_SR_RDRF) == 0) {}
-		w = SPI0->SPI_RDR;
-		spi_set_8bit_transfer();
-		return w;
+		spi_set_16bit_transfer(); //switch to 16Bit mode
+		SPI0->SPI_TDR = w;  //Put Half-word into Transmit Data Register
+		while ((SPI0->SPI_SR & SPI_SR_RDRF) == 0) {} //poll RDRF bit in SPI Status Register (When the received data is read, the RDRF bit is cleared )
+		w = SPI0->SPI_RDR;  //get received data from Receive Data Register
+		spi_set_8bit_transfer();  //back to 8Bit Mode (default)
+		return w;   //return received data to caller
 	}
 	//------------------------------------------------------------------------------
 	/** SPI receive a byte */
 	__attribute__((always_inline))
-	uint8_t dmaReceive()
+	uint8_t dmaReceive()  //receive single byte
 	{
-		return dmaSpiTransfer((uint8_t)0XFF);
+		return dmaSpiTransfer((uint8_t)0XFF);  //Send Dummy byte to get a received byte in return
 	}
 	//------------------------------------------------------------------------------
 	/** SPI receive multiple bytes */
-	uint8_t dmaReceive(uint8_t* buf, uint32_t n) 
+	uint8_t dmaReceive(uint8_t* buf, uint32_t n)   //receive a whole buffer in 8Bit mode
 	{
-		Spi* pSpi = SPI0;
+		Spi* pSpi = SPI0; //DMA is DUE only. And there it is SPI0
 		int rtn = 0;
 #if ILI_USE_SAM3X_DMAC
 		// clear overrun error
-		pSpi->SPI_SR;
+		pSpi->SPI_SR;  //"The user has to read the status register to clear the OVRES bit"
 
-		spiDmaRX(buf, n);
-		spiDmaTX(0, n);
+		spiDmaRX(buf, n);  //configure and start RX DMA
+		spiDmaTX(NULL, n); //configure and start TX DMA (with dummy send data, because we want to receive data here)
 
-		uint32_t m = millis();
-		while (!dmac_channel_transfer_done(ILI_SPI_DMAC_RX_CH)) 
+		uint32_t m = millis(); //set start for timeout handling
+		while (!dmac_channel_transfer_done(ILI_SPI_DMAC_RX_CH))   //Poll for transfer complete (channel not enabled any more)
 		{
-			if ((millis() - m) > ILI_SAM3X_DMA_TIMEOUT)  
+			if ((millis() - m) > ILI_SAM3X_DMA_TIMEOUT)    //on timeout
 			{
-				dmac_channel_disable(ILI_SPI_DMAC_RX_CH);
+				dmac_channel_disable(ILI_SPI_DMAC_RX_CH);  
 				dmac_channel_disable(ILI_SPI_DMAC_TX_CH);
 				rtn = 2;
 				break;
 			}
 		}
 		if (pSpi->SPI_SR & SPI_SR_OVRES) rtn |= 1;
-#else  // ILI_USE_SAM3X_DMAC
-		for (uint32_t i = 0; i < n; i++) 
+#else  // => not ILI_USE_SAM3X_DMAC
+		for (uint32_t i = 0; i < n; i++)   //without DMA we have to iterate over each byte of the buffer
 		{
-			pSpi->SPI_TDR = 0XFF;
-			while ((pSpi->SPI_SR & SPI_SR_RDRF) == 0) {}
+			pSpi->SPI_TDR = 0XFF;  //Send dummy byte to get received byte in return
+			while ((pSpi->SPI_SR & SPI_SR_RDRF) == 0) {} //poll RDRF bit in SPI Status Register (When the received data is read, the RDRF bit is cleared )
 			buf[i] = pSpi->SPI_RDR;
 		}
-#endif  // ILI_USE_SAM3X_DMAC
+#endif  // of #if ILI_USE_SAM3X_DMAC
 		return rtn;
 	}
 	//------------------------------------------------------------------------------
 	/** SPI send a byte */
 	__attribute__((always_inline))
-	void dmaSend(uint8_t b) 
+	void dmaSend(uint8_t b)   //send a single byte in 8Bit mode
 	{
 		dmaSpiTransfer(b);
 	}
 
 	__attribute__((always_inline))
-	void dmaSend(uint16_t w) 
+	void dmaSend(uint16_t w)  //send a single half-word in 16Bit mode
 	{
 		dmaSpiTransfer(w);
 	}
 	//------------------------------------------------------------------------------
-	void dmaSend(const uint8_t* buf, uint32_t n) 
+	void dmaSend(const uint8_t* buf, uint32_t n)   //send a whole buffer in 8Bit Mode
 	{
-		Spi* pSpi = SPI0;
-		spiDmaTX(buf, n);
-		while (!dmac_channel_transfer_done(ILI_SPI_DMAC_TX_CH)) {}
-		while ((pSpi->SPI_SR & SPI_SR_TXEMPTY) == 0) {}
+		Spi* pSpi = SPI0;  //DMA is DUE only. And there it is SPI0
+		spiDmaTX(buf, n);  //configure and start TX DMA
+		while (!dmac_channel_transfer_done(ILI_SPI_DMAC_TX_CH)) {} //Poll for transfer complete (channel not enabled any more)
+		while ((pSpi->SPI_SR & SPI_SR_TXEMPTY) == 0) {}  //wait for complete sent-out including a programmed transfer delay to be over
 		// leave RDR empty
-		pSpi->SPI_RDR;
+		pSpi->SPI_RDR; //has to be read out, even if it is not needed
 	}
 
-	void dmaSend(const uint16_t* buf, uint32_t n) 
+	void dmaSend(const uint16_t* buf, uint32_t n)  //send a whole buffer in 16Bit Mode
 	{
-		Spi* pSpi = SPI0;
-		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(_spiClkDivider) | SPI_CSR_NCPHA | SPI_CSR_BITS_16_BIT;
-		spiDmaTX16(buf, n);
-		while (!dmac_channel_transfer_done(ILI_SPI_DMAC_TX_CH)) {}
-		while ((pSpi->SPI_SR & SPI_SR_TXEMPTY) == 0) {}
+		Spi* pSpi = SPI0; //DMA is DUE only. And there it is SPI0
+		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(_spiClkDivider) | SPI_CSR_NCPHA | SPI_CSR_BITS_16_BIT;  //change to 16Bit mode
+		//NCPHA =1 =>Data is captured on the leading edge of SPCK and changed on the following edge of SPCK
+		spiDmaTX16(buf, n); //configure and start TX DMA
+		while (!dmac_channel_transfer_done(ILI_SPI_DMAC_TX_CH)) {} //Poll for transfer complete (channel not enabled any more)
+		while ((pSpi->SPI_SR & SPI_SR_TXEMPTY) == 0) {}  //wait for complete sent-out including a programmed transfer delay to be over
 		// leave RDR empty
-		pSpi->SPI_RDR;
-		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(_spiClkDivider) | SPI_CSR_NCPHA | SPI_CSR_BITS_8_BIT;
+		pSpi->SPI_RDR; //has to be read out, even if it is not needed
+		pSpi->SPI_CSR[ILI_SPI_CHIP_SEL] = SPI_CSR_SCBR(_spiClkDivider) | SPI_CSR_NCPHA | SPI_CSR_BITS_8_BIT; //change back to 8Bit Mode (default)
 	}
 #endif
 #endif
