@@ -1,5 +1,5 @@
 /*
-graphicstestWithStats.ino - Test program for Arduino Due library for interfacing with (write only) ILI9225-based TFTs
+Test_ILI9225_DMA_.ino - Test program for Arduino Due library for interfacing with (write only) ILI9225-based TFTs
 
 Taken from Arduino Due library for interfacing with ILI9341-based TFTs
 (https://github.com/marekburiak/ILI341_Due)
@@ -51,16 +51,18 @@ along with ILI9225_Due.  If not, see <http://www.gnu.org/licenses/>.
 
 //Path to SPI.h could be:
 // "C:\Users\username\AppData\Local\arduino15\packages\arduino\hardware\sam\1.6.12\libraries\SPI\src\SPI.h"
+
 #include <SPI.h>
 
 #include <SystemFont5x7.h>
+#include <fonts/Arial_bold_14.h>
 #include <ILI9225_due_config.h>
 #include <ILI9225_due.h>
 
 /*
  * Test_ILI9225_DMA.ino
  *
- * Created: 07.05.2019 17:57:01
+ * Created: 04.06.2019 21:34:01
  * Author: Martin Zwerschke
  */ 
  
@@ -75,9 +77,37 @@ along with ILI9225_Due.  If not, see <http://www.gnu.org/licenses/>.
 //Wire MISO to GND, because ILI9225 (at least on my board) can not be read and only one pin (SDI) is there. (SDA is missing.)
 ILI9225_due tft = ILI9225_due(TFT_CS, TFT_DC, TFT_RST);
 
+//#define OVERCLOCK96
+
 void setup() 
 {
-  Serial.begin(250000);
+ 
+ #ifdef ARDUINO_SAM_DUE
+ #ifdef OVERCLOCK96
+ //------------overclock Due to 96MHz
+ 
+ #define SYS_BOARD_PLLAR (CKGR_PLLAR_ONE | CKGR_PLLAR_MULA(15UL) | CKGR_PLLAR_PLLACOUNT(0x3fUL) | CKGR_PLLAR_DIVA(1UL))
+ #define SYS_BOARD_MCKR ( PMC_MCKR_PRES_CLK_2 | PMC_MCKR_CSS_PLLA_CLK)
+ 
+ /* Set FWS according to SYS_BOARD_MCKR configuration */
+ EFC0->EEFC_FMR = EEFC_FMR_FWS(4); //4 waitstate flash access
+ EFC1->EEFC_FMR = EEFC_FMR_FWS(4);
+
+ /* Initialize PLLA to (15+1)*6=96MHz */
+ PMC->CKGR_PLLAR = SYS_BOARD_PLLAR;
+ while (!(PMC->PMC_SR & PMC_SR_LOCKA)) {}
+
+ PMC->PMC_MCKR = SYS_BOARD_MCKR;
+ while (!(PMC->PMC_SR & PMC_SR_MCKRDY)) {}
+ //--------------------------
+ Serial.begin(218750); //corrected value for 250000 baud at 96MHz
+ #else //normal 84MHZ
+ Serial.begin(250000); //250000 baud at 84MHz
+ #endif
+ #else //not SAM_DUE
+ Serial.begin(9600);
+ #endif
+
   while (!Serial) ; // wait for Arduino Serial Monitor
   Serial.println(F("ILI9225 Test!")); 
  
@@ -96,57 +126,92 @@ void setup()
   //Serial.print(F("Self Diagnostic: 0x")); Serial.println(x, HEX); 
 //  
 
+  uint32_t totaltime=0ul,singletime=0ul;
+  uint32_t start=millis();
   Serial.println(F("Benchmark                Time (microseconds)"));
-
+  
   Serial.print(F("Screen fill              \t"));
-  Serial.println(testFillScreen());
-  delay(200);
+  Serial.println(singletime=testFillScreen());
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Text                     \t"));
-  Serial.println(testText());
-  delay(600);
+  Serial.println(singletime=testText());
+  //totaltime+=singletime;
+  //delay(600);
 
   Serial.print(F("Lines                    \t"));
-  Serial.println(testLines(ILI9225_CYAN));
-  delay(200);
+  Serial.println(singletime=testLines(ILI9225_CYAN));
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Horiz/Vert Lines         \t"));
-  Serial.println(testFastLines(ILI9225_RED, ILI9225_BLUE));
-  delay(200);
+  Serial.println(singletime=testFastLines(ILI9225_RED, ILI9225_BLUE));
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Rectangles (outline)     \t"));
-  Serial.println(testRects(ILI9225_GREEN));
-  delay(200);
+  Serial.println(singletime=testRects(ILI9225_GREEN));
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Rectangles (filled)      \t"));
-  Serial.println(testFilledRects(ILI9225_YELLOW, ILI9225_MAGENTA));
-  delay(200);
+  Serial.println(singletime=testFilledRects(ILI9225_YELLOW, ILI9225_MAGENTA));
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Circles (filled)         \t"));
-  Serial.println(testFilledCircles(10, ILI9225_MAGENTA));
+  Serial.println(singletime=testFilledCircles(10, ILI9225_MAGENTA));
+  //totaltime+=singletime;
 
   Serial.print(F("Circles (outline)        \t"));
-  Serial.println(testCircles(10, ILI9225_WHITE));
-  delay(200);
+  Serial.println(singletime=testCircles(10, ILI9225_WHITE));
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Triangles (outline)      \t"));
-  Serial.println(testTriangles());
-  delay(200);
+  Serial.println(singletime=testTriangles());
+  //totaltime+=singletime;
+  //delay(200);
  
   Serial.print(F("Triangles (filled)       \t"));
-  Serial.println(testFilledTriangles());
-  delay(200);
+  Serial.println(singletime=testFilledTriangles());
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Rounded rects (outline)  \t"));
-  Serial.println(testRoundRects());
-  delay(200);
+  Serial.println(singletime=testRoundRects());
+  //totaltime+=singletime;
+  //delay(200);
 
   Serial.print(F("Rounded rects (filled)   \t"));
-  Serial.println(testFilledRoundRects());
-  delay(200);
+  Serial.println(singletime=testFilledRoundRects());
+  //totaltime+=singletime;
+  //delay(200);
+
+  Serial.print(F("Arcs (filled)   \t"));
+  Serial.println(singletime=testFilledArcs());
+  //totaltime+=singletime;	 
+  //delay(200);
+  
+  //Serial.println("Total time:"+String(totaltime/1000)+String(" ms."));
+  //delay(200);
 
   Serial.println(F("Done!"));
   
+  tft.fillScreen(ILI9225_BLUE);
+  tft.setRotation(iliRotation270);
+  tft.setFont(Arial_bold_14);
+  tft.setTextColor(ILI9225_WHITE, ILI9225_BLUE);
+  tft.setTextArea(20, 30, 26, 12, Arial_bold_14);
+  tft.cursorToXY(20, 50);
+  tft.print(F("Total time: "));
+  tft.print((micros() - start)/1000);
+  tft.print(F(" ms"));
+
+  delay(2000);
+  tft.setTextColor(ILI9225_YELLOW, ILI9225_BLACK);
+  tft.setTextArea(0,0,ILI9225_TFTWIDTH,ILI9225_TFTHEIGHT);
 }
 
 void loop(void) 
@@ -168,7 +233,9 @@ unsigned long testFillScreen()
   tft.fillScreen(ILI9225_GREEN);
   tft.fillScreen(ILI9225_BLUE);
   tft.fillScreen(ILI9225_BLACK);
+    
   return micros() - start;
+
 }
 
 unsigned long testText() 
@@ -294,7 +361,8 @@ unsigned long testFilledRects(uint16_t color1, uint16_t color2)
 
   tft.fillScreen(ILI9225_BLACK);
   n = min(tft.width(), tft.height());
-  for(i=n; i>0; i-=6) {
+  for(i=n; i>0; i-=6)
+  {
     i2    = i / 2;
     start = micros();
     tft.fillRect(cx-i2, cy-i2, i, i, color1);
@@ -415,4 +483,47 @@ unsigned long testFilledRoundRects()
 
   return micros() - start;
 }
+
+
+unsigned long testFilledArcs()
+{
+	unsigned long start;
+	
+	tft.fillScreen(ILI9225_BLACK);
+	start = micros();
+	int           i, i2,
+	cx = tft.width()  / 2 ,
+	cy = tft.height() / 2 ;
+	
+	for (float r=6.0f; r<=88.0f; r*=1.34f)
+	{
+		for(float w=360.0f; w>0.0f; w-=30.0f)
+		{
+			int c = 15+ w*240.0f/360.0f;
+
+			if(r<15.0f)
+			{
+				tft.fillArc(cx,cy,r,r/4.0f,0.0f, w,tft.color565(255-c, 10 , 255-c));
+			}
+			else if(r<28.0f)
+			{
+				tft.fillArc(cx,cy,r,r/4.0f,0.0f, w,tft.color565(30, c,30 ));
+			}
+			else if(r<55.0f)
+			{
+				tft.fillArc(cx,cy,r,r/4.0f,0.0f, w,tft.color565(255-c, 30 ,30 ));
+			}
+			else if(r<75.0f)
+			{
+				tft.fillArc(cx,cy,r,r/4.0f,0.0f, w,tft.color565(30, 30,c ));
+			}	
+			else 
+			{
+				tft.fillArc(cx,cy,r,r/4.0f,0.0f, w,tft.color565(c, c,30 ));
+			}
+		}
+	}
+	return micros() - start;
+}
+
 
