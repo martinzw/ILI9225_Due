@@ -57,6 +57,7 @@ along with ILI9225_due.  If not, see <http://www.gnu.org/licenses/>.
 	****************************************************/
 
 
+
 #ifndef _ILI9225_due_configH_
 #define _ILI9225_due_configH_
 
@@ -67,7 +68,10 @@ along with ILI9225_due.  If not, see <http://www.gnu.org/licenses/>.
 
 // set the clock divider
 #if defined ARDUINO_SAM_DUE
-#define ILI9225_SPI_CLKDIVIDER 2	// for Due
+#define ILI9225_SPI_CLKDIVIDER 2	// for Due 2=> SPI-Clock 84MHz/2 = 42MHz  (max 50MHz for ILI9225)
+									// for Due divider 1 is possible, if CPU is "underclocked" to 60MHz (60MHz SPI still works with my ILI9225)
+									// for DUE 2=> SPI-Clock 96MHz/2 = 48MHz works , if CPU is "overclocked" to 96MHz 
+									// for DUE 2=> SPI-Clock 114MHz/2 = 57MHz works , if CPU is "overclocked" to 114MHz (Maximum Overclocking for Due)
 #elif defined ARDUINO_ARCH_AVR
 #define ILI9225_SPI_CLKDIVIDER SPI_CLOCK_DIV2	// for Uno, Mega,...
 #endif
