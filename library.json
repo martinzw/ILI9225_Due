@@ -1,25 +1,13 @@
 {
-
   "name": "ILI9225_Due",
-
   "version": "0.1",
-
   "keywords": "tft, lcd, ili9225, Arduino Due, display, DMA",
-
   "description": "Fast library for output to ILI9225 based SPI TFT display using SAM3X8E's DMA features",
-
   "repository":
-
   {
-
     "type": "git",
-
     "url": "https://github.com/martinzw/ILI9225_Due.git"
-
   },
-
   "frameworks": "arduino",
-
   "platforms": "atmelsam"
-
 }
